@@ -84,3 +84,6 @@ class ExperimentalConfig(Config):
 
         # MSC3772: A push rule for mutual relations.
         self.msc3772_enabled: bool = experimental.get("msc3772_enabled", False)
+
+        # MSCXXXX: Custom room presets.
+        self.mscxxxx_enabled: bool = experimental.get("mscxxxx_enabled", False)
