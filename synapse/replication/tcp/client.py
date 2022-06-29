@@ -117,7 +117,6 @@ class ReplicationDataHandler:
         self._streams = hs.get_replication_streams()
         self._instance_name = hs.get_instance_name()
         self._typing_handler = hs.get_typing_handler()
-        self._room_member_handler = hs.get_room_member_handler()
 
         self._notify_pushers = hs.config.worker.start_pushers
         self._pusher_pool = hs.get_pusherpool()
@@ -232,7 +231,7 @@ class ReplicationDataHandler:
                 ):
                     # TODO: this is a bit yucky. It would be nicer to pub/sub this
                     #  via the notifier, or tracking the rate limit externally in Redis.
-                    self._room_member_handler.record_join_in(row.data.room_id)
+                    self.notifier.notify_new_join_event(row.data)
 
         await self._presence_handler.process_replication_rows(
             stream_name, instance_name, token, rows
