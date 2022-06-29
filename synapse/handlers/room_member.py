@@ -395,6 +395,7 @@ class RoomMemberHandler(metaclass=abc.ABCMeta):
             # up blocking profile updates.
             if newly_joined and ratelimit:
                 await self._join_rate_limiter_local.ratelimit(requester)
+                await self._join_rate_per_room_limiter.ratelimit(requester, key=room_id)
 
         result_event = await self.event_creation_handler.handle_new_client_event(
             requester,
@@ -842,6 +843,9 @@ class RoomMemberHandler(metaclass=abc.ABCMeta):
                 if ratelimit:
                     await self._join_rate_limiter_remote.ratelimit(
                         requester,
+                    )
+                    await self._join_rate_per_room_limiter.ratelimit(
+                        requester, key=room_id
                     )
 
                 inviter = await self._get_inviter(target.to_string(), room_id)
