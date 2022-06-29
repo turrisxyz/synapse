@@ -15,7 +15,6 @@
 import logging
 from typing import (
     TYPE_CHECKING,
-    Any,
     Callable,
     Collection,
     Dict,
@@ -38,8 +37,6 @@ from synapse.metrics.background_process_metrics import (
     run_as_background_process,
     wrap_as_background_process,
 )
-from synapse.replication.tcp.streams import EventsStream
-from synapse.replication.tcp.streams.events import EventsStreamEventRow, EventsStreamRow
 from synapse.storage._base import SQLBaseStore, db_to_json, make_in_list_sql_clause
 from synapse.storage.database import (
     DatabasePool,
@@ -97,8 +94,6 @@ class RoomMemberWorkerStore(EventsWorkerStore):
         # background update still running?
         self._current_state_events_membership_up_to_date = False
 
-        self._room_member_handler = hs.get_room_member_handler()
-
         txn = db_conn.cursor(
             txn_name="_check_safe_current_state_events_membership_updated"
         )
@@ -124,34 +119,6 @@ class RoomMemberWorkerStore(EventsWorkerStore):
                 [],
                 lambda: self._known_servers_count,
             )
-
-    def process_replication_rows(
-        self, stream_name: str, instance_name: str, token: int, rows: Iterable[Any]
-    ) -> None:
-        """Snoop on the replication streams for join events.
-
-        This allows the RoomMemberHandler to track joins in a room across all workers,
-        for the purposes of rate limiting.
-        """
-        if stream_name == EventsStream.NAME:
-            row: EventsStreamRow
-            for row in rows:
-                if row.type != EventsStreamEventRow.TypeId:
-                    continue
-                assert isinstance(row.data, EventsStreamEventRow)
-
-                if row.data.rejected:
-                    continue
-
-                if (
-                    row.data.type == EventTypes.Member
-                    and row.data.membership == Membership.JOIN
-                ):
-                    # TODO: this includes join -> join transitions (i.e. displayname
-                    #       and avatar changes). This is probably fine for now.
-                    self._room_member_handler.record_join_in(row.data.room_id)
-
-            super().process_replication_rows(stream_name, instance_name, token, rows)
 
     @wrap_as_background_process("_count_known_servers")
     async def _count_known_servers(self) -> int:

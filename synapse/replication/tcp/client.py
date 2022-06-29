@@ -21,7 +21,7 @@ from twisted.internet.interfaces import IAddress, IConnector
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.python.failure import Failure
 
-from synapse.api.constants import EventTypes, ReceiptTypes
+from synapse.api.constants import EventTypes, Membership, ReceiptTypes
 from synapse.federation import send_queue
 from synapse.federation.sender import FederationSender
 from synapse.logging.context import PreserveLoggingContext, make_deferred_yieldable
@@ -117,6 +117,7 @@ class ReplicationDataHandler:
         self._streams = hs.get_replication_streams()
         self._instance_name = hs.get_instance_name()
         self._typing_handler = hs.get_typing_handler()
+        self._room_member_handler = hs.get_room_member_handler()
 
         self._notify_pushers = hs.config.worker.start_pushers
         self._pusher_pool = hs.get_pusherpool()
@@ -218,6 +219,20 @@ class ReplicationDataHandler:
                     state_key=row.data.state_key,
                     membership=row.data.membership,
                 )
+
+                # If this event is a join, make a note of it so we have an accurate
+                # cross-worker room rate limit.
+                # TODO: Erik said we should exclude rows that came from ex_outliers
+                #  here, but I don't see how we can determine that. I guess we could
+                #  add a flag to row.data?
+                if (
+                    row.data.type == EventTypes.Member
+                    and row.data.membership == Membership.JOIN
+                    and not row.data.outlier
+                ):
+                    # TODO: this is a bit yucky. It would be nicer to pub/sub this
+                    #  via the notifier, or tracking the rate limit externally in Redis.
+                    self._room_member_handler.record_join_in(row.data.room_id)
 
         await self._presence_handler.process_replication_rows(
             stream_name, instance_name, token, rows
