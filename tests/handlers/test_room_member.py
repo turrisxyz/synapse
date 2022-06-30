@@ -35,12 +35,12 @@ class TestJoinsLimitedByPerRoomRateLimiter(HomeserverTestCase):
         # Create a room on this homeserver.
         # Note that this counts as a
         self.room_id = self.helper.create_room_as(self.alice, tok=self.alice_token)
+        self.intially_unjoined_room_id = "!example:otherhs"
 
     @override_config({"rc_joins_per_room": {"per_second": 0, "burst_count": 2}})
-    def test_local_joins_contribute_to_limit_and_are_limited(self) -> None:
+    def test_local_user_local_joins_contribute_to_limit_and_are_limited(self) -> None:
         # The rate limiter has accumulated one token from Alice's join after the create
         # event.
-        #
         # Try joining the room as Bob.
         self.get_success(
             self.handler.update_membership(
@@ -62,17 +62,60 @@ class TestJoinsLimitedByPerRoomRateLimiter(HomeserverTestCase):
             LimitExceededError,
         )
 
-    @override_config({"rc_joins_per_room": {"per_second": 1, "burst_count": 1}})
-    def test_remote_joins_are_limited(self) -> None:
-        # Fill the rate limiter bucket so that subsequent requests will be denied
+    @override_config({"rc_joins_per_room": {"per_second": 0, "burst_count": 1}})
+    def test_local_user_profile_edits_dont_contribute_to_limit(self) -> None:
+        # The rate limiter has accumulated one token from Alice's join after the create
+        # event. Alice should still be able to change her displayname.
+        self.get_success(
+            self.handler.update_membership(
+                requester=create_requester(self.alice),
+                target=UserID.from_string(self.alice),
+                room_id=self.room_id,
+                action=Membership.JOIN,
+                content={"displayname": "Alice Cooper"},
+            )
+        )
 
-        # Ask to join a room on another server
-        ...
+        # The rate limiter bucket is full. Chris's join should be denied.
+        self.get_failure(
+            self.handler.update_membership(
+                requester=create_requester(self.chris),
+                target=UserID.from_string(self.chris),
+                room_id=self.room_id,
+                action=Membership.JOIN,
+            ),
+            LimitExceededError,
+        )
 
-    @override_config({"rc_joins_per_room": {"per_second": 1, "burst_count": 1}})
-    def test_local_joins_contribute_to_rate_limit(self) -> None:
-        ...
-
-    @override_config({"rc_joins_per_room": {"per_second": 1, "burst_count": 1}})
+    @override_config({"rc_joins_per_room": {"per_second": 0, "burst_count": 1}})
     def test_remote_joins_contribute_to_rate_limit(self) -> None:
-        ...
+        # Join once, to fill the rate limiter bucket. Patch out the `_remote_join" call
+        # because there is no other homeserver for us to join via.
+        with patch.object(
+            self.handler, "_remote_join", return_value=("$dummy_event", 1000)
+        ):
+            self.get_success(
+                self.handler.update_membership(
+                    requester=create_requester(self.bob),
+                    target=UserID.from_string(self.bob),
+                    room_id=self.intially_unjoined_room_id,
+                    action=Membership.JOIN,
+                )
+            )
+
+        # Try to join as Chris. Should get denied.
+        self.get_failure(
+            self.handler.update_membership(
+                requester=create_requester(self.chris),
+                target=UserID.from_string(self.chris),
+                room_id=self.intially_unjoined_room_id,
+                action=Membership.JOIN,
+            ),
+            LimitExceededError,
+        )
+
+    # TODO: test that remote joins to a room are rate limited.
+    #   Could do this by
+    #   - remote-joining a room
+    #   - immediately leaving
+    #   - trying to remote-join again.
