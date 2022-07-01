@@ -406,7 +406,11 @@ class RoomMemberHandler(metaclass=abc.ABCMeta):
             if newly_joined and ratelimit:
                 await self._join_rate_limiter_local.ratelimit(requester)
                 print(f"Rate limiting {room_id} for {requester}")
-                await self._join_rate_per_room_limiter.ratelimit(requester, key=room_id)
+                await self._join_rate_per_room_limiter.ratelimit(
+                    requester,
+                    key=room_id,
+                    update=self.hs.persists_events_for_room(room_id),
+                )
 
         result_event = await self.event_creation_handler.handle_new_client_event(
             requester,
@@ -856,7 +860,10 @@ class RoomMemberHandler(metaclass=abc.ABCMeta):
                         requester,
                     )
                     await self._join_rate_per_room_limiter.ratelimit(
-                        requester, key=room_id
+                        requester,
+                        key=room_id,
+                        update=self.hs.persists_events_for_room(room_id),
+                    )
                     )
 
                 inviter = await self._get_inviter(target.to_string(), room_id)
