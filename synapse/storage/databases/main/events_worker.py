@@ -1484,7 +1484,7 @@ class EventsWorkerStore(SQLBaseStore):
         ) -> List[Tuple[int, str, str, str, str, str, str, str, bool, bool]]:
             sql = (
                 "SELECT e.stream_ordering, e.event_id, e.room_id, e.type,"
-                " se.state_key, redacts, relates_to_id, membership, rejections.reason IS NOT NULL"
+                " se.state_key, redacts, relates_to_id, membership, rejections.reason IS NOT NULL,"
                 " e.outlier"
                 " FROM events AS e"
                 " LEFT JOIN redactions USING (event_id)"
@@ -1527,7 +1527,7 @@ class EventsWorkerStore(SQLBaseStore):
         ) -> List[Tuple[int, str, str, str, str, str, str, str, bool, bool]]:
             sql = (
                 "SELECT event_stream_ordering, e.event_id, e.room_id, e.type,"
-                " se.state_key, redacts, relates_to_id, membership, rejections.reason IS NOT NULL"
+                " se.state_key, redacts, relates_to_id, membership, rejections.reason IS NOT NULL,"
                 " e.outlier"
                 " FROM events AS e"
                 # NB: the next line (inner join) is what makes this query different from
