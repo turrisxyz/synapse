@@ -62,7 +62,7 @@ class TestJoinsLimitedByPerRoomRateLimiter(HomeserverTestCase):
             LimitExceededError,
         )
 
-    @override_config({"rc_joins_per_room": {"per_second": 0, "burst_count": 1}})
+    @override_config({"rc_joins_per_room": {"per_second": 0, "burst_count": 2}})
     def test_local_user_profile_edits_dont_contribute_to_limit(self) -> None:
         # The rate limiter has accumulated one token from Alice's join after the create
         # event. Alice should still be able to change her displayname.
@@ -76,15 +76,14 @@ class TestJoinsLimitedByPerRoomRateLimiter(HomeserverTestCase):
             )
         )
 
-        # The rate limiter bucket is full. Chris's join should be denied.
-        self.get_failure(
+        # Still room in the limiter bucket. Chris's join should be accepted.
+        self.get_success(
             self.handler.update_membership(
                 requester=create_requester(self.chris),
                 target=UserID.from_string(self.chris),
                 room_id=self.room_id,
                 action=Membership.JOIN,
-            ),
-            LimitExceededError,
+            )
         )
 
     @override_config({"rc_joins_per_room": {"per_second": 0, "burst_count": 1}})
@@ -115,7 +114,7 @@ class TestJoinsLimitedByPerRoomRateLimiter(HomeserverTestCase):
         )
 
     # TODO: test that remote joins to a room are rate limited.
-    #   Could do this by
+    #   Could do this by setting the burst count to 1, then:
     #   - remote-joining a room
     #   - immediately leaving
     #   - trying to remote-join again.
