@@ -1,0 +1,1 @@
+Define a `MXCUri` dataclass and use it to simplify `MediaRetentionTestCase`.
