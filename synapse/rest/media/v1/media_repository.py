@@ -36,7 +36,7 @@ from synapse.config.repository import ThumbnailRequirement
 from synapse.http.site import SynapseRequest
 from synapse.logging.context import defer_to_thread
 from synapse.metrics.background_process_metrics import run_as_background_process
-from synapse.types import UserID
+from synapse.types import MXCUri, UserID
 from synapse.util.async_helpers import Linearizer
 from synapse.util.retryutils import NotRetryingDestination
 from synapse.util.stringutils import random_string
@@ -187,7 +187,7 @@ class MediaRepository:
         content: IO,
         content_length: int,
         auth_user: UserID,
-    ) -> str:
+    ) -> MXCUri:
         """Store uploaded content for a local user and return the mxc URL
 
         Args:
@@ -220,7 +220,7 @@ class MediaRepository:
 
         await self._generate_thumbnails(None, media_id, media_id, media_type)
 
-        return "mxc://%s/%s" % (self.server_name, media_id)
+        return MXCUri(self.server_name, media_id)
 
     async def get_local_media(
         self, request: SynapseRequest, media_id: str, name: Optional[str]
