@@ -229,8 +229,7 @@ class ReplicationDataHandler:
                     and row.data.membership == Membership.JOIN
                     and not row.data.outlier
                 ):
-                    # TODO: this is a bit yucky. It would be nicer to pub/sub this
-                    #  via the notifier, or tracking the rate limit externally in Redis.
+                    # TODO retrieve the previous state, and exclude join -> join transitions
                     self.notifier.notify_user_joined_room(row.data.event_id, row.data.room_id)
 
         await self._presence_handler.process_replication_rows(
