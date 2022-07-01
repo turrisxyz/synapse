@@ -285,7 +285,7 @@ class HomeserverTestCase(TestCase):
             config=self.hs.config.server.listeners[0],
             resource=self.resource,
             server_version_string="1",
-            max_request_body_size=1234,
+            max_request_body_size=4096,
             reactor=self.reactor,
         )
 
