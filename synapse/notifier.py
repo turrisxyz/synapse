@@ -41,7 +41,6 @@ from synapse.logging import issue9533_logger
 from synapse.logging.context import PreserveLoggingContext
 from synapse.logging.opentracing import log_kv, start_active_span
 from synapse.metrics import LaterGauge
-from synapse.replication.tcp.streams.events import EventsStreamEventRow
 from synapse.streams.config import PaginationConfig
 from synapse.types import (
     JsonDict,
@@ -229,7 +228,7 @@ class Notifier:
 
         # Called when there are new things to stream over replication
         self.replication_callbacks: List[Callable[[], None]] = []
-        self._join_event_callbacks: List[Callable[[EventsStreamEventRow], None]] = []
+        self._new_join_in_room_callbacks: List[Callable[[str, str], None]] = []
 
         self._federation_client = hs.get_federation_http_client()
 
@@ -282,15 +281,20 @@ class Notifier:
         """
         self.replication_callbacks.append(cb)
 
-    def add_join_event_callback(
-        self, cb: Callable[[EventsStreamEventRow], None]
+    def add_new_join_in_room_callback(
+        self, cb: Callable[[str, str], None]
     ) -> None:
-        """Add a callback that will be called when some new data is available.
-        Callback is not given any arguments. It should *not* return a Deferred - if
-        it needs to do any asynchronous work, a background thread should be started and
-        wrapped with run_as_background_process.
+        """Add a callback that will be called when a user joins a room.
+
+        This only fires on genuine membership changes, e.g. "invite" -> "join".
+        Membership transitions like "join" -> "join" (for e.g. displayname changes) do
+        not trigger the callback.
+
+        When called, the callback receives two arguments: the event ID and the room ID.
+        It should *not* return a Deferred - if it needs to do any asynchronous work, a
+        background thread should be started and wrapped with run_as_background_process.
         """
-        self._join_event_callbacks.append(cb)
+        self._new_join_in_room_callbacks.append(cb)
 
     async def on_new_room_event(
         self,
@@ -735,9 +739,9 @@ class Notifier:
         for cb in self.replication_callbacks:
             cb()
 
-    def notify_new_join_event(self, row: EventsStreamEventRow) -> None:
-        for cb in self._join_event_callbacks:
-            cb(row)
+    def notify_user_joined_room(self, event_id: str, room_id: str) -> None:
+        for cb in self._new_join_in_room_callbacks:
+            cb(event_id, room_id)
 
     def notify_remote_server_up(self, server: str) -> None:
         """Notify any replication that a remote server has come back up"""

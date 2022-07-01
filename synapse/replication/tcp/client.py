@@ -231,7 +231,7 @@ class ReplicationDataHandler:
                 ):
                     # TODO: this is a bit yucky. It would be nicer to pub/sub this
                     #  via the notifier, or tracking the rate limit externally in Redis.
-                    self.notifier.notify_new_join_event(row.data)
+                    self.notifier.notify_user_joined_room(row.data.event_id, row.data.room_id)
 
         await self._presence_handler.process_replication_rows(
             stream_name, instance_name, token, rows

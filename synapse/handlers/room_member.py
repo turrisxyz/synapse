@@ -140,10 +140,10 @@ class RoomMemberHandler(metaclass=abc.ABCMeta):
         )
 
         self.request_ratelimiter = hs.get_request_ratelimiter()
-        hs.get_notifier().add_join_event_callback(self._on_join_event)
+        hs.get_notifier().add_new_join_in_room_callback(self._on_user_joined_room)
 
-    def _on_join_event(self, row: EventsStreamEventRow) -> None:
-        """Notify the rate limiter that a room joins has occurred.
+    def _on_user_joined_room(self, event_id: str, room_id: str) -> None:
+        """Notify the rate limiter that a room join has occurred.
 
         Use this to inform the RoomMemberHandler about joins that have either
         - taken place on another homeserver, or
@@ -151,7 +151,7 @@ class RoomMemberHandler(metaclass=abc.ABCMeta):
         Joins actioned by this worker should use the usual `ratelimit` method, which
         checks the limit and increments the counter in one go.
         """
-        self._join_rate_per_room_limiter.record_action(requester=None, key=row.room_id)
+        self._join_rate_per_room_limiter.record_action(requester=None, key=room_id)
 
     @abc.abstractmethod
     async def _remote_join(
