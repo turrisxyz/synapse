@@ -400,6 +400,37 @@ def map_username_to_mxid_localpart(
     return username.decode("ascii")
 
 
+MU = TypeVar("MU", bound="MXCUri")
+
+
+@attr.s(frozen=True, slots=True, auto_attribs=True, repr=False)
+class MXCUri:
+    """Represents a URI that points to a media resource in matrix.
+
+    MXC's take the form 'mxc://server_name/media_id'.
+    """
+
+    server_name: str
+    media_id: str
+
+    @classmethod
+    def from_str(cls: Type[MU], mxc_uri_str: str) -> MU:
+        try:
+            server_name, media_id = mxc_uri_str.split("/")[-2:]
+        except IndexError:
+            raise SynapseError(
+                400, f"Error processing malformed MXC uri: {mxc_uri_str}"
+            )
+
+        return cls(server_name, media_id)
+
+    def to_string(self) -> str:
+        """Convert an MXCUri object to a str."""
+        return f"mxc://{self.server_name}/{self.media_id}"
+
+    __repr__ = to_string
+
+
 @attr.s(frozen=True, slots=True, order=False)
 class RoomStreamToken:
     """Tokens are positions between events. The token "s1" comes after event 1.
