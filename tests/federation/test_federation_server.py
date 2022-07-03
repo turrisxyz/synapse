@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+from http import HTTPStatus
 
 from parameterized import parameterized
 
@@ -264,6 +265,20 @@ class SendJoinFederationTests(unittest.FederatingHomeserverTestCase):
         )
         self.assertEqual(r[("m.room.member", joining_user)].membership, "join")
 
+    @override_config({"rc_joins_per_room": {"per_second": 0, "burst_count": 2}})
+    def test_make_join_respects_room_join_rate_limit(self) -> None:
+        # In the test setup, two users join the room. Since the rate limiter burst
+        # count is 2, a new make_join request to the room should be denied.
+        joining_user = "@misspiggy:" + self.OTHER_SERVER_NAME
+        channel = self.make_signed_federation_request(
+            "GET",
+            f"/_matrix/federation/v1/make_join/{self._room_id}/{joining_user}"
+            f"?ver={DEFAULT_ROOM_VERSION}",
+        )
+        self.assertEqual(channel.code, HTTPStatus.TOO_MANY_REQUESTS, channel.json_body)
+
+    def test_send_join_contributes_to_room_join_rate_and_is_limited(self) -> None:
+        ...
 
 def _create_acl_event(content):
     return make_event_from_dict(
